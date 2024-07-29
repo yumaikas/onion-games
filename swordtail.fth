@@ -7,9 +7,9 @@
 : max (**\*) math.max(**\*) ;
 : min (**\*) math.min(**\*) ;
 : range-clamp { l h -- f } : (*\*) l max h min ; ;
--2 2 range-clamp { clamper }
--8 8 range-clamp { clamp8 } behaves clamp8 (*\*) 
-: clamp1 (*\*) clamper(*\*) ;
+-1 1 range-clmap { clamp } behaves clamp (*\*)
+-2 2 range-clamp { 2clamp } behaves 2clamp (*\*)
+-8 8 range-clamp { 8clamp } behaves 8clamp (*\*) 
 : str (*\*) tostring(*\*) ;
 : sq (*\*) dup * ;
 : ? { pred a b -- * } pred if a else b then ; 
@@ -22,7 +22,7 @@
 : target ( # -- x y ) target>> [ pos ]. ;
 : dist { x1 y1 x2 y2 -- d } x1 x2 - sq y1 y2 - sq + math.sqrt(*\*) ;
 : vmag { x y -- m } 0 x 0 y dist ;
-: norm { x y -- x' y' } x y vmag { l } x l div clamp1 y l div clamp1 ;
+: norm { x y -- x' y' } x y vmag { l } x l div 1clamp y l div 1clamp ;
 : to-pos ( # x y -- ) >>y >>x ;
 : /flip-xy { # dx dy -- dx dy } dx zero? not if dx neg? >>flip then dx dy ;
 : flipdir (#\*) flip>> -1 1 ? ;
@@ -55,14 +55,15 @@ coll len 1 -1 +do [ it coll get pred(*\*) not if coll it table.remove(**) then ]
 : B_L (*\*) 2 bt ; : B_R (*\*) 3 bt ;
 : B_A? (*\*) 4 bt? ; : B_B? (*\*) 5 bt? ;
 : B_X? (*\*) 6 bt? ; : B_Y? (*\*) 7 bt? ;
+behaves keyp (*\*)
 
 0 { T }
 : sway { p m -- s } T p div math.sin(*\*) m * ;
 
 \ A sprite is 32 bytes, or 64 nibbles
 \ Sprite IDs start 0x4000 bytes or 0x8000 nibbles
-: splat { x y id -- s } 
-t[ x y to-pos 1 >>t 0x8000 id 64 * + { addr } 63 0 do addr + peek4(*\*) , loop ] ;
+t[ ::splat 
+:: new { x y id -- s } t[ x y to-pos 1 >>t 0x8000 id 64 * + { addr } 63 0 do addr + peek4(*\*) , loop ] ;
 :: alive (#\*) it len pos?  ;
 :: tic (#\)
 it len pos? if
@@ -75,10 +76,11 @@ it len pos? if
     it 32 dX 32 + @nil put
     t>> 0.08 + >>t
 then
-] ;
+]. ;
 
 \ Camera functions
 0 0 { CX CY }
+: to-cam ( x y -- ) { CX CY } ;
 : cam-xy ( x y -- x' y' ) CX CY -xy 120 68 +xy ;
 : pt! (***\) [ cam-xy ] pix(***) ;
 : cpos ( # --  x y ) x>> y>> cam-xy ;
@@ -133,8 +135,8 @@ t[ ::bullets
     ;
 :: draw (\) bullets each [ cpos dx>> dy>> 6 *xy cpos +xy 4 line(*****) ]. for ;
 ].
-
-t[ ] { safe_spots }
+: spot (#**\) cell-mid <xy> ;
+t[ 141 100 spot , 84 100 spot , 153 100 spot , 198 100 spot , ] { safe_spots }
 : wander ( # t -- ) >>target "wander" >>state ; : wander? ( # -- ? ) state>> "wander" eq? ;
 : hide ( # t  -- ) >>target "hide" >>state ; : hide?  ( # -- ? ) state>> "hide" eq? ;
 t[ ::kidfish
@@ -154,12 +156,16 @@ t[ ::kidfish
     ]. for ;
     :: draw ( -- ) kidfish each [ presentation>> cpos 0 1 flipspr spr(******) ]. for ;
 ].
+: masc (#\) 272 , ; : femme (#\) 273 , ;
+t[ femme femme femme femme masc masc masc masc ] 
+each [ safe_spots tpick ] kidfish.new for
+
 
 t[ ::player
 :: new ( x y b -- p ) t[ >>b to-pos 0 >>t 0 >>gt 0 >>bt false >>flip t[ ] >>spawned  ] ;
 :: draw ( # -- ) 256 cpos 0 1 flip>> if 0 else 1 then 0 2 1 spr(*********) ;
 :: tic ( # -- ) ++t "gt" ++ "bt" ++
-t>> 1 mod? if 1 B_R 1 B_L - 1 B_D 1 B_U - /flip-xy mov then
+t>> 1 mod? if b>> B_R b>> B_L - b>> B_D b>> B_U - /flip-xy mov then
 1 B_Y? gt>> 6 > and if 0 >>gt pos flipdir 0 bullets.spawn then 
 1 B_X? bt>> 60 > and if 0 >>bt pos flipdir bombs.spawn then ; 
 ].
@@ -178,4 +184,23 @@ t[ ::pinkfish
 ]. for ;
 ].
 
+0 0 1 player.new { p1 }
 
+
+: TIC ( -- )
+    0 cls(*)
+    \ A lil debugging
+    15 keyp if kidfish.wave_start then
+    15 keyp if kidfish.wave_end then
+    p1 :tic() kidfish :tic() bullets :tic() bubbles :tic() bombs :tic()
+    p1 [ pos to-cam ]. 
+    cmap bubbles :draw() kidfish :draw() p1 :draw() bullets :draw() bombs :draw()
+    
+;
+
+: BOOT ( -- ) tstamp(\*) math.randomseed(*)
+    p1 [ 101 98 8 *xy to-pos ].
+    240 0 do { x } 134 0 do { y } x y mget(**\*) 
+        dup 11 eq? 12 eq? or if x y 0 mset(***) x y 8 xy* 5 pinkfish.spawn then
+    loop loop
+;

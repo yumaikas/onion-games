@@ -1,6 +1,9 @@
 0 { T }
 0 { SCORE }
 : sway { p m -- s } T p div math.sin(*\*) m * ;
+: 2dup { a b -- * * * * } a b a b ;
+
+: ? { c a b -- a/b } c if a else b then ;
 : m (\*) t[ ] ;
 : zero? (*\*) 0 eq? ;
 : mod? (**\*) mod 0 eq? ;
@@ -17,23 +20,34 @@
 : +x { x y dx -- x' y } x dx + y ;
 : +y { x y dy -- x y' } x y dy + ;
 : ++t ( # -- ) t>> 1 + >>t ;
-: target ( # -- x y ) target>> [ pos ]. ;
-: o-dist { a b -- d } a [ pos ]. b [ pos ]. dist ;
-: dist { x1 y1 x2 y2 -- d } x1 x2 - sq y1 y2 - sq + math.sqrt(*\*) ;
-: vmag { x y -- m } 0 x 0 y dist ;
-: norm { x y -- x' y' } x y vmag { l } x l div clamp1 y l div clamp1 ;
 : pos ( # -- x y ) x>> y>> ;
 : to-pos ( # x y -- ) >>y >>x ;
+: target ( # -- x y ) target>> [ pos ]. ;
+: dist { x1 y1 x2 y2 -- d } x1 x2 - sq y1 y2 - sq + math.sqrt(*\*) ;
+: o-dist { a b -- d } a [ pos ]. b [ pos ]. dist ;
+: vmag { x y -- m } 0 x 0 y dist ;
+: norm { x y -- x' y' } x y vmag { l } x l div clamp1 y l div clamp1 ;
 : +xy { x y dx dy  -- x' y' } x dx + y dy + ;
 : -xy { x y dx dy  -- x' y' } x dx - y dy - ;
 : *xy { x y m -- x' y' } x m * y m * ;
+: div-xy { x y m -- x' y' } x m div y m div ;
+: mod-xy { x y m -- x' y' } x m mod y m mod ;
 : cell-mid ( x y -- x' y' ) [ 8 * 4 + ] 8 * 4 + ;
 : tpick { t -- c }  1 t len math.random(**\*) t get ;
 : t-nil-rand { t -- } t len pos? if t 1 t len math.random(**\*) @nil put then ;
 : dX ( x -- d ) 1 swap math.random(**\*) ;
 0 0 { CX CY }
 : cam-xy ( x y -- x' y' ) CX CY -xy 120 68 +xy ;
-: pt! (***\) [ cam-xy ] pix(***) ;
+: pt! (***\) pix(***) ;
+
+: cmap { re -- }
+\ cx cy 8 div-xy [ cx 8 mod? 1 0 ? + ] cy 8 mod? 1 0 ? + { ccx ccy }
+0 0 cam-xy [ 8 idiv ] 8 idiv
+\ 15 8 ccx ccy -xy 
+31 18 
+0 0
+\ cx cy 8 mod-xy 8 8 -xy
+00 1 re map(*********) ;
 
 : mov ( # x y -- ) y>> + >>y x>> + >>x ;
 : <xy> ( x y -- xy ) t[ to-pos ] ;
@@ -67,12 +81,13 @@ B_L bt? if 1 -= x then
 B_R bt? if 1 += x then ].
 x y x facing ;
 
-m { anim } 
-: anim.new ( t -- anim ) t[ >>frames 0 >>t 1 >>f ] ;
-: anim.frame ( # -- fr ) f>> frames>> get ;
-: anim.draw { # x y -- } anim.frame [ id>> x y cam-xy 0 1 f>> r>> spr(*******) ]. ;
-: anim.next-frame ( # -- ) f>> 1 + >>f f>> frames>> len > if 1 >>f then ;
-: anim.tic ( # -- ) anim.frame .d t>> < if 0 >>t anim.next-frame then ++t ;
+t[ ::anim
+:: new ( t -- anim ) t[ >>frames 0 >>t 1 >>f ] ;
+:: frame ( # -- fr ) f>> frames>> get ;
+:: draw { # x y -- } anim.frame [ id>> x y 0 1 f>> r>> spr(*******) ]. ;
+:: next-frame ( # -- ) f>> 1 + >>f f>> frames>> len > if 1 >>f then ;
+:: tic ( # -- ) anim.frame .d t>> < if 0 >>t anim.next-frame then ++t ;
+].
 
 : filter { # pred -- } it { coll } 
 coll len 1 -1 +do [ it coll get pred(*\*) not if coll it table.remove(**) then ]. loop ;
@@ -234,8 +249,11 @@ id 2 eq? if x y cell-mid mobs.spawner then
 id 1 eq? if x y cell-mid @player.starts [ <xy> , ]. then ;
 
 : BOOT (\) 
+    tstamp(\*) math.randomseed(*)
     0x3FF8 10 poke(**)
     30 0 do { mx } 17 0 do { my } mx my mscan loop loop 
+    @player.starts each [ x>> "," .. y>> .. trace(*) ]. for
+
     p_1 [ @player.starts tpick [ pos ]. to-pos ].
     @menu { mode } ;
 

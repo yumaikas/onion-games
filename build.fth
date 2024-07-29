@@ -2,10 +2,10 @@
 
 : throw (**\) assert(**) ;
 
-"pobp.lua" { game_built_path }
+"pobp_o.lua" { game_built_path }
 "pop_or_be_popped.lua" io.output(*)
 
-"lua cli.lua --compile pop_or_be_popped.fth pobp_o.lua" os.execute(*\**) throw
+"lua ../onion/cli.lua --compile pop_or_be_popped.fth pobp_o.lua" os.execute(*\**) throw
 
 : echo ( ln -- ) "\n" .. io.write(*) ;
 
@@ -28,4 +28,4 @@ for
 
 io.close() @io.stdout io.output(*)
 
-"tic80 --skip ./glass_game/glass.lua" os.execute(*\**) throw
+"tic80 --skip pop_or_be_popped.lua" os.execute(*\**) throw
