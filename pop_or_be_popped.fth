@@ -1,56 +1,13 @@
+#include(libgame)
+#include(libtic80)
 0 { T }
 0 { SCORE }
 : sway { p m -- s } T p div math.sin(*\*) m * ;
-: 2dup { a b -- * * * * } a b a b ;
-
-: ? { c a b -- a/b } c if a else b then ;
-: m (\*) t[ ] ;
-: zero? (*\*) 0 eq? ;
-: mod? (**\*) mod 0 eq? ;
-: pos? (*\*) 0 > ;
-: neg? (*\*) 0 < ;
-: max (**\*) math.max(**\*) ;
-: min (**\*) math.min(**\*) ;
-: range-clamp { l h -- f } : (*\*) l max h min ; ;
--2 2 range-clamp { clamper }
-: clamp1 (*\*) clamper(*\*) ;
-: str (*\*) tostring(*\*) ;
-: sq (*\*) dup * ;
-: , ( # v -- ) table.insert(#*) ;
-: +x { x y dx -- x' y } x dx + y ;
-: +y { x y dy -- x y' } x y dy + ;
-: ++t ( # -- ) t>> 1 + >>t ;
-: pos ( # -- x y ) x>> y>> ;
-: to-pos ( # x y -- ) >>y >>x ;
-: target ( # -- x y ) target>> [ pos ]. ;
-: dist { x1 y1 x2 y2 -- d } x1 x2 - sq y1 y2 - sq + math.sqrt(*\*) ;
-: o-dist { a b -- d } a [ pos ]. b [ pos ]. dist ;
-: vmag { x y -- m } 0 x 0 y dist ;
-: norm { x y -- x' y' } x y vmag { l } x l div clamp1 y l div clamp1 ;
-: +xy { x y dx dy  -- x' y' } x dx + y dy + ;
-: -xy { x y dx dy  -- x' y' } x dx - y dy - ;
-: *xy { x y m -- x' y' } x m * y m * ;
-: div-xy { x y m -- x' y' } x m div y m div ;
-: mod-xy { x y m -- x' y' } x m mod y m mod ;
 : cell-mid ( x y -- x' y' ) [ 8 * 4 + ] 8 * 4 + ;
-: tpick { t -- c }  1 t len math.random(**\*) t get ;
-: t-nil-rand { t -- } t len pos? if t 1 t len math.random(**\*) @nil put then ;
-: dX ( x -- d ) 1 swap math.random(**\*) ;
-0 0 { CX CY }
-: cam-xy ( x y -- x' y' ) CX CY -xy 120 68 +xy ;
 : pt! (***\) pix(***) ;
 
-: cmap { re -- }
-\ cx cy 8 div-xy [ cx 8 mod? 1 0 ? + ] cy 8 mod? 1 0 ? + { ccx ccy }
-0 0 cam-xy [ 8 idiv ] 8 idiv
-\ 15 8 ccx ccy -xy 
-31 18 
-0 0
-\ cx cy 8 mod-xy 8 8 -xy
-00 1 re map(*********) ;
-
-: mov ( # x y -- ) y>> + >>y x>> + >>x ;
-: <xy> ( x y -- xy ) t[ to-pos ] ;
+: sc-to-m (**\**) 8 div-xy ;
+: center-to-tl ( x y -- t l ) 120 68 2 *xy -xy ;
 
 : sxy-mid ( x y -- id ) [ 8 div ] 8 div mget(**\*) ;
 : sxy-solid? ( x y -- ? ) sxy-mid 0 fget(**\*) ;
@@ -67,44 +24,23 @@ x y -1 +x s? and ;
 : flipped { id f -- * } id f-h no-r f *frame* ;
 : frame { id f -- * } id no-f no-r f *frame* ;
 
-0 1 2 3 4 5 6 7 { B_U B_D B_L B_R B_A B_B B_X B_Y }
-\ # is the player ID, v is the button id
-: bt? ( # v -- ? ) it 1 - 8 * + btn(*\*) ;
-
-: facing { x -- f } x 0 eq? if 0 else x 0 > if 1 else -1 then then ;
-: p-xyf (*\***) [
-    \ Takes the player number, gives the X/Y and facing of the controller
-0 0 { x y }
-B_U bt? if 1 -= y then
-B_D bt? if 1 += y then
-B_L bt? if 1 -= x then
-B_R bt? if 1 += x then ].
-x y x facing ;
-
 t[ ::anim
 :: new ( t -- anim ) t[ >>frames 0 >>t 1 >>f ] ;
 :: frame ( # -- fr ) f>> frames>> get ;
-:: draw { # x y -- } anim.frame [ id>> x y 0 1 f>> r>> spr(*******) ]. ;
+:: draw { # x y flip -- } anim.frame [ id>> x y 0 1 flip r>> spr(*******) ]. ;
 :: next-frame ( # -- ) f>> 1 + >>f f>> frames>> len > if 1 >>f then ;
-:: tic ( # -- ) anim.frame .d t>> < if 0 >>t anim.next-frame then ++t ;
-].
+:: tic ( # -- ) anim.frame .d t>> < if 0 >>t anim.next-frame then ++t ; ].
 
 : filter { # pred -- } it { coll } 
 coll len 1 -1 +do [ it coll get pred(*\*) not if coll it table.remove(**) then ]. loop ;
 
-: p-sprites ( # -- ) 
-  t[ 491 6 frame , 507 6 frame , ] anim.new >>right
-  t[ 491 6 flipped , 507 6 flipped , ] anim.new >>left 
-  t[ 491 60 frame , ] anim.new >>stand_right
-  t[ 491 60 flipped , ] anim.new >>stand_left ;
 
 \ A sprite is 32 bytes, or 64 nibbles
 \ Sprite IDs start 0x4000 bytes or 0x8000 nibbles
-: splat { x y id -- s }  t[ x y to-pos 1 >>t
-    0x8000 id 64 * + { addr } 63 0 do addr + peek4(*\*) , loop
-] { spl }
-: spl.alive ( # -- ? ) it len pos? ;
-: spl.tic ( # -- )  
+: splat { x y id -- s }  t[ ::it x y to-pos 1 >>t
+    0x8000 id 64 * + { addr } 63 0 do addr + peek4(*\*) , loop 
+:: alive ( # -- ? ) it len pos? ;
+:: tic ( # -- )  
     it len pos? if
         7 0 do { y } 7 0 do { x }
             x 1 + y 8 * + { idx } 
@@ -115,43 +51,37 @@ coll len 1 -1 +do [ it coll get pred(*\*) not if coll it table.remove(**) then ]
         it 32 dX 32 + @nil put
         t>> 0.08 + >>t
     then
-; spl ;
+; ] ;
     
-t[ t[ ] >>enemies t[ ] >>spawns ] { mobs }
+t[ ::mobs t[ ] >>enemies t[ ] >>spawns 
 
-: mob-balloon ( x y -- b ) t[ to-pos  
-t[ 
- t[ 267 24 flipped , 283 24 flipped , ] anim.new >>left 
- t[ 267 24 frame , 283 24 frame , ] anim.new >>right 
-] >>anims
-true >>live
-@mobs.spawns tpick >>target
-] { ball }
-: ball.tic ( # -- ) it { me }
-    target pos dist 2 < if @mobs.spawns tpick >>target then
-    target pos -xy { dx dy } dx dy norm 0.5 *xy mov
-    \ TODO: Figure out why "fast" movement happens
-    anims>> dx pos? if .right else .left then [ anim.tic me [ pos 3 4 -xy ]. anim.draw ]. ;
-    \ pos 2 7 circ(****) ; \ Debug stuff
-: ball.alive ( # -- ? ) live>> ;
-: ball.hurt ( # -- ) false >>live ;
- ball ;
+:: balloon ( x y -- b ) t[ ::me to-pos  
+ t[ t[ 267 24 frame , 283 24 frame , ] anim.new >>move ] >>anims
+ true >>live
+ @mobs.spawns tpick >>target
+ :: tic ( # -- ) it { me }
+  target pos dist 2 < if @mobs.spawns tpick >>target then
+  target pos -xy /flip-xy norm 0.5 *xy mov
+  anims>> .move [ anim.tic me [ pos 3 4 -xy flipspr ]. anim.draw ]. ;
+ :: alive ( # -- ? ) live>> ;
+ :: hurt ( # -- ) false >>live ; ] ;
 
-: mobs.add ( # m -- ) enemies>> [ , ]. ;
-: mobs.spawner ( x y -- ) @mobs.spawns [ <xy> , ].  ;
-: mobs.tic ( -- ) @mobs [
-    T 60 mod? 4 dX 3 <= and if spawns>> tpick [ pos ]. { sx sy } 
-        3 dX 1 - 1 do drop sx sy mob-balloon mobs.add loop 
+:: add ( # m -- ) enemies>> [ , ]. ;
+:: spawner ( x y -- ) @mobs.spawns [ <xy> , ].  ;
+:: tic ( -- ) @mobs [
+    T 60 mod? 4 dX 3 <= and if 
+        3 dX 1 - 1 do drop spawns>> tpick [ pos ]. mobs.balloon mobs.add loop
     then
     enemies>> each :tic() for
     enemies>> [ : (*\*) :alive(\*) ; filter ].
 ]. ;
+]
 
-m { bullets }
-: bullets.spawn ( x y dx dy -- ) bullets [ t[ >>dy >>dx to-pos 1 >>t ] , ]. ;
-: bullets.hurt ( # -- ) 121 >>t ;
-: bullets.alive ( # -- ? ) t>> 120 < ;
-: bullets.tic (\)
+t[ ::bullets 
+:: spawn ( x y dx dy -- ) bullets [ t[ >>dy >>dx to-pos 1 >>t ] , ]. ;
+:: hurt ( # -- ) 121 >>t ;
+:: alive ( # -- ? ) t>> 120 < ;
+:: tic (\)
     bullets each [ dx>> 3 * dy>> mov ++t ]. for 
     @mobs.enemies each { m } bullets each { b }
         m .hurt m b o-dist 4 < b [ bullets.alive ]. and and if 
@@ -161,87 +91,65 @@ m { bullets }
         then
     for for
     bullets [ : (*\*) [ bullets.alive ]. ; filter ]. ;
-: bullets.draw (\) bullets each [ pos dx>> +x 2 pt! dx>> 3 * dy>> pos +xy 4 pt! ]. for ;
+:: draw (\) bullets each [ pos dx>> +x 2 pt! dx>> 3 * dy>> pos +xy 4 pt! ]. for ;
+].
 
-t[ t[ ] >>starts ] { player }
-: player.new ( -- p ) 
-t[ 40 >>x 35 >>y 1 >>facing true >>live t[ p-sprites ] >>anims 0 >>gt 0 >>t 1 >>last-facing ] { pl }
-: pl.alive ( # -- ? ) live>> ;
-: pl.hurt ( # -- ) false >>live ;
-pl ;
+: p-sprites ( # -- ) t[ 491 6 frame , 507 6 frame , ] anim.new >>move t[ 491 60 frame , ] anim.new >>stand ;
+t[ t[ ] >>starts ] [ ::player
+:: new ( -- p ) 
+t[ ::pl 40 >>x 35 >>y 1 >>facing true >>live t[ p-sprites ] >>anims 0 >>gt 0 >>t 1 >>last-facing
+:: alive ( # -- ? ) live>> ;
+:: hurt ( # -- ) false >>live ;
+] ;
+:: anim { # name -- } pos -4 -7 +xy flipspr name anims>> get [ anim.draw ]. ;
+:: draw ( # -- ) moved? if "move" else "stand" then player.anim ;
 
-: player.anim { # name -- } 
-pos -4 -7 +xy name anims>> get [ anim.draw ]. ;
+:: move { # dx dy -- } stopped
+pos dx 0 +xy solid-around? if dx 0 mov dx zero? not >>moved then
+pos 0 dy +xy solid-around? if 0 dy mov dy zero? not moved>> or >>moved then ;
 
-: player.draw ( # -- ) cond 
- facing>> 0 eq? last-facing>> 0 < and -> "stand_left" of
- facing>> 0 eq? last-facing>> 0 > and -> "stand_right" of
- facing>> 0 > -> "right" of
- true -> "left" of 
-end player.anim ;
-
-: player.move { # dx dy -- } 
-pos dx 0 +xy solid-around? if dx 0 mov then
-pos 0 dy +xy solid-around? if 0 dy mov then ;
-
-: player.tic ( # -- ) 
-1 p-xyf { dx dy f } f >>facing 
-dy zero? not if last-facing>> >>facing then
-f zero? not if f >>last-facing then
-t>> 3 mod? not if dx dy player.move then
-pos { CX CY }
-t>> 12 mod? dx dy vmag pos? and if 2 "D-4" 5 2 3 sfx(*****) then
+:: tic ( # -- ) 
+t>> 3 mod? not if 1 B_R 1 B_L -  1 B_D 1 B_U - /flip-xy player.move then
+t>> 12 mod? moved? and if 2 "D-4" 5 2 3 sfx(*****) then
 player.draw 
-1 [ B_A bt? ]. gt>> 0 <= and if 
-     pos 3 - last-facing>> 0 bullets.spawn 12 >>gt 
-    2 "F-3" 5 1 sfx(****) 
+1 B_A? gt>> 0 <= and if 
+    pos 3 - flipdir 0 bullets.spawn 12 >>gt  2 "F-3" 5 1 sfx(****) 
 then 
-gt>> 1 - 0 math.max(**\*) >>gt
-++t
-cond
-facing>> 1 eq? -> anims>> .right [ anim.tic ]. of
-facing>> -1 eq?  -> anims>> .left [ anim.tic ]. of 
-end ;
-
+gt>> 1 - 0 max >>gt ++t
+moved? if anims>> .move [ anim.tic ]. then ;
+]. 
 
 : remap (*\*) { t } t 2 eq? if 0 else t then ; 
 : map-tic (\) 0 0 30 17 0 0 -1 1 @remap map(*********) ;
+\ : map-tic (\) @remap cmap ;
 
-player.new { p_1 }
-@nil { mode }
-
+player.new { p_1 } @nil { mode }
 : reset ( -- ) 
     p_1 [ @player.starts tpick [ pos ]. to-pos true >>live ].
     @mobs [ t[ ] >>enemies ].
-    0 { SCORE }
-    @game { mode }
-;
-
+    0 { SCORE } @game { mode } ;
 : game ( -- ) 
-8 cls(*) 
-map-tic 
+8 cls(*) map-tic 
 p_1 :alive(\*) if p_1 [ player.tic ]. else
     T 360 > if 
         "[A] to restart" 80 100 4 false 1 print(******) 
-        1 [ B_A bt? ]. if @reset { mode } then
+        1 B_A? if @reset { mode } then
     then
 then
-mobs.tic
-bullets.tic bullets.draw 
+mobs.tic bullets.tic bullets.draw 
 @mobs.enemies each { m } 
     m p_1 o-dist 2 < p_1 :alive(\*) and m .hurt and if 
         p_1 [ it :hurt() pos 0 { T } ]. 493 splat @mobs [ mobs.add ].
     then 
 for
-"SCORE: " SCORE ..  10 10 4 print(****) 
-;
+"SCORE: " SCORE ..  10 10 4 print(****) ;
 
 : menu ( -- )
 8 cls(*) 
 map-tic 
 "Pop or be popped" 20 30 2 sway 2 + 4 false 2 print(******)
-T 360 > if "[A] to start" 80 100 4 false 1 print(******) then
-1 [ B_A bt? ]. T 180 > and if @game { mode } then
+T 360 > if "[Z (or A btn)] to start" 50 100 4 false 1 print(******) then
+1 B_A? T 180 > and if @game { mode } then
 ;
 
 : mscan { x y -- } x y mget(**\*) { id }
@@ -252,8 +160,6 @@ id 1 eq? if x y cell-mid @player.starts [ <xy> , ]. then ;
     tstamp(\*) math.randomseed(*)
     0x3FF8 10 poke(**)
     30 0 do { mx } 17 0 do { my } mx my mscan loop loop 
-    @player.starts each [ x>> "," .. y>> .. trace(*) ]. for
-
     p_1 [ @player.starts tpick [ pos ]. to-pos ].
     @menu { mode } ;
 
