@@ -155,4 +155,3 @@ t[ ::pinkfish
 
 \ Plot:
 
-\ 
