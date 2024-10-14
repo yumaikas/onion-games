@@ -12,7 +12,8 @@
 2 4 1 1 -xy [ "," .. ] .. trace(*)
 
 : cmap (\) 
-CX CY 8 div-xy 15 8 -xy
+CX 8 div 15 -
+CY 8 div 8 -
 32 18 
 8 CX 8 mod - 8 -
 8 CY 8 mod - 8 -
@@ -36,11 +37,12 @@ it len pos? if
     it 32 dX @nil put
     it 32 dX 32 + @nil put
     t>> 0.08 + >>t
-then
-]. ;
+then ;
+]. 
 
 
 : pick-swim-loc ( -- x y ) 0 8 239 * dLH  8 69 * 8 101 * dLH ;
+: kid-pick-swim-loc ( -- x y ) 0 8 83 * dLH  8 69 * 8 101 * dLH ;
 
 t[ ::anim
 :: new ( t -- anim ) t[ >>frames 0 >>t 1 >>f ] ;
@@ -81,24 +83,28 @@ t[ ::bullets
     ;
 :: draw (\) bullets each [ cpos dx>> dy>> 6 *xy cpos +xy 4 line(*****) ]. for ;
 ].
+
 : spot (#**\*) cell-mid <xy> ;
-t[ 141 100 spot , 84 100 spot , 153 100 spot , 198 100 spot , ] { safe_spots }
+
+t[ 23 100 spot , 52 100 spot , 68 100 spot , 81 100 spot , ] { safe_spots }
+
 : wander ( # x y -- ) <xy> >>target "wander" >>state ; : wander? ( # -- ? ) state>> "wander" eq? ;
 : hide ( # t -- ) >>target "hide" >>state ; : hide?  ( # -- ? ) state>> "hide" eq? ;
+
 t[ ::kidfish
     :: new ( x y id -- ) kidfish [ 
-        t[ >>presentation to-pos 0 >>t false >>flip pick-swim-loc wander ] , ]. ;
+        t[ >>presentation to-pos 0 >>t false >>flip kid-pick-swim-loc wander ] , ]. ;
     :: mov? ( # -- m ) t>> hide? 1 4 ? mod? ;
     :: alive ( * -- ? ) drop true ;
     :: wave_start ( -- ) kidfish each [ it safe_spots closest hide ]. for ;
-    :: wave_end ( -- ) kidfish each [ pick-swim-loc wander ]. for ;
+    :: wave_end ( -- ) kidfish each [ kid-pick-swim-loc wander ]. for ;
     :: tic ( -- ) kidfish each [ 
         ++t 
         hide? wander? target-dist  { h? w? tdist }
         kidfish.mov? { mov? }
         cond
             h? tdist 5 < and -> @nil drop of
-            w? tdist 5 < and -> pick-swim-loc wander of
+            w? tdist 5 < and -> kid-pick-swim-loc wander of
             mov? -> towards-target /flip-xy mov of
         end
     ]. for ;
@@ -108,11 +114,26 @@ t[ ::kidfish
 t[ femme femme femme femme masc masc masc masc ] 
 each [ safe_spots tpick [ pos ]. ] kidfish.new for
 
+
+: sxy-mid ( x y -- id ) -4 4 +xy 8 div-xy mget(**\*) ;
+: sxy-solid? ( x y -- ? ) sxy-mid 1 fget(**\*) ;
+
+: any-solid? { x y -- ? } : s? (**\*) sxy-solid? ;
+false 
+x y -1 +y s? or
+x y 1 +y s? or 
+x y 1 +x s? or
+x y -1 +x s? or ;
+
 t[ ::player
 :: new ( x y -- p ) t[ to-pos 0 >>t 0 >>gt 0 >>bt false >>flip t[ ] >>spawned  ] ;
-:: draw ( # -- ) 256 cpos 4 5 -xy 0 1 flipspr 0 2 1 spr(*********) ;
+:: draw ( # -- ) 256 cpos 8 5 -xy 0 1 flipspr 0 2 1 spr(*********) ;
+:: move { # dx dy -- }   
+    pos dx 0 +xy any-solid? not if dx 0 mov then
+    pos 0 dy +xy any-solid? not if 0 dy mov then ;
+
 :: tic ( # -- ) ++t "gt" ++ "bt" ++
-t>> 1 mod? if 1 B_R 1 B_L - 1 B_D 1 B_U - /flip-xy mov then
+t>> 1 mod? if 1 B_R 1 B_L - 1 B_D 1 B_U - /flip-xy player.move then
 1 B_Y? gt>> 6 > and if 0 >>gt pos flipdir 0 bullets.spawn then 
 1 B_X? bt>> 60 > and if 0 >>bt pos flipdir bombs.spawn then ; 
 ].
@@ -131,18 +152,29 @@ t[ ::pinkfish
 ]. for ;
 ].
 
-0 0 1 player.new { p1 }
+t[ ::food 
+t[ ] >>vines t[ ] >>fruit
+:: vine ( x y -- ) @food.vines [ <xy> , ]. ;
+:: tic ( -- )  ;
+].
 
+
+0 0 1 player.new { p1 }
 
 : TIC ( -- )
     0 cls(*)
     \ A lil debugging
     15 keyp if kidfish.wave_start then
     16 keyp if kidfish.wave_end then
-    p1 [ "@" x>> .. ", " .. y>> ..  ]. 10 10 4 print(****)
     p1 [ player.tic ]. kidfish :tic() pinkfish :tic() bullets :tic() bubbles :tic() bombs :tic()
-    p1 [ pos to-cam ]. 
+    p1 [ pos [ 120 max ]  to-cam ]. 
     cmap bubbles :draw() kidfish :draw() p1 [ player.draw ].  bullets :draw() bombs :draw() pinkfish :draw()
+    p1 [ "@" x>> .. ", " .. y>> ..  ]. 10 10 4 print(****)
+
+    "Tile under player: " p1 [ pos ]. -4 4 +xy 8 div-xy mget(**\*) .. 10 20 4 print(****)
+    "Solid under player? " p1 [ pos ]. -4 4 +xy 8 div-xy mget(**\*) 1 fget(**\*) tostring .. 10 30 4 print(****)
+    p1 [ cpos ]. 4 pix(***)
+
     1 += T
 ;
 
@@ -153,5 +185,6 @@ t[ ::pinkfish
     loop loop
 ;
 
-\ Plot:
+\ Plot: 
+\ Intro: Explain controls, do food gathering
 

@@ -1,4 +1,5 @@
 \ Math and support words
+behaves tostring (*\*)
 : 2dup { a b -- * * * * } a b a b ;
 : zero? (*\*) 0 eq? ;
 : mod? (**\*) mod 0 eq? ;

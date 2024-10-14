@@ -5,7 +5,7 @@
 "build/swt_o.lua" { game_built_path }
 "build/swordtail.lua" io.output(*)
 
-"lua ../onion/cli.lua --compile swordtail.fth build/swt_o.lua" os.execute(*\**) throw
+"lua ../onion/onion.lua --compile swordtail.fth build/swt_o.lua" os.execute(*\**) throw
 
 : echo ( ln -- ) "\n" .. io.write(*) ;
 

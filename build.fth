@@ -5,7 +5,7 @@
 "build/pobp_o.lua" { game_built_path }
 "build/pop_or_be_popped.lua" io.output(*)
 
-"lua ../onion/cli.lua --compile pop_or_be_popped.fth build/pobp_o.lua" os.execute(*\**) throw
+"lua ../onion/onion.lua --compile pop_or_be_popped.fth build/pobp_o.lua" os.execute(*\**) throw
 
 : echo ( ln -- ) "\n" .. io.write(*) ;
 

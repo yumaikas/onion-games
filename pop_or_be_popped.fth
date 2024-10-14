@@ -31,8 +31,7 @@ t[ ::anim
 :: next-frame ( # -- ) f>> 1 + >>f f>> frames>> len > if 1 >>f then ;
 :: tic ( # -- ) anim.frame .d t>> < if 0 >>t anim.next-frame then ++t ; ].
 
-: filter { # pred -- } it { coll } 
-coll len 1 -1 +do [ it coll get pred(*\*) not if coll it table.remove(**) then ]. loop ;
+: filter { # pred -- } it { coll } coll len 1 -1 +do [ it coll get pred(*\*) not if coll it table.remove(**) then ]. loop ;
 
 
 \ A sprite is 32 bytes, or 64 nibbles
@@ -128,6 +127,7 @@ player.new { p_1 } @nil { mode }
     p_1 [ @player.starts tpick [ pos ]. to-pos true >>live ].
     @mobs [ t[ ] >>enemies ].
     0 { SCORE } @game { mode } ;
+
 : game ( -- ) 
 8 cls(*) map-tic 
 p_1 :alive(\*) if p_1 [ player.tic ]. else
@@ -148,7 +148,7 @@ for
 8 cls(*) 
 map-tic 
 "Pop or be popped" 20 30 2 sway 2 + 4 false 2 print(******)
-T 360 > if "[Z (or A btn)] to start" 50 100 4 false 1 print(******) then
+T 180 > if "[Z (or A btn)] to start" 50 100 4 false 1 print(******) then
 1 B_A? T 180 > and if @game { mode } then
 ;
 
